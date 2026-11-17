@@ -166,3 +166,10 @@ class EnvioTests(TestCase):
         self.assertEqual(payload["messaging_product"], "whatsapp")
         self.assertEqual(payload["interactive"]["action"]["buttons"][0]["reply"]["id"], "a")
         self.assertEqual(post.call_args.kwargs["headers"]["Authorization"], "Bearer t")
+
+
+class PaginasTests(TestCase):
+    def test_privacidade(self):
+        r = self.client.get("/privacidade/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Política de Privacidade")

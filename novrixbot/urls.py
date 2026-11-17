@@ -9,6 +9,7 @@ admin.site.index_title = "Conversas e contatos"
 
 urlpatterns = [
     path("webhook/", views.webhook, name="webhook"),
+    path("privacidade/", views.privacidade, name="privacidade"),
     path("saude/", views.saude, name="saude"),
     path("painel/", admin.site.urls),
 ]

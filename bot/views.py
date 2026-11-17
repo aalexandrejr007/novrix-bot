@@ -3,6 +3,7 @@ import logging
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
+from django.shortcuts import render
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
@@ -11,6 +12,11 @@ from . import fluxo, whatsapp
 from .models import Contato, Mensagem
 
 log = logging.getLogger(__name__)
+
+
+@require_GET
+def privacidade(request):
+    return render(request, "bot/privacidade.html")
 
 
 @require_GET
