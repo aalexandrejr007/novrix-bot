@@ -173,3 +173,17 @@ class PaginasTests(TestCase):
         r = self.client.get("/privacidade/")
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "Política de Privacidade")
+
+
+class NonoDigitoTests(TestCase):
+    @override_settings(WHATSAPP=WA)
+    def test_reenvia_com_nono_digito(self):
+        from . import whatsapp
+        erro = mock.Mock(status_code=400, text="erro")
+        erro.json.return_value = {"error": {"code": 131030}}
+        ok = mock.Mock(status_code=200)
+        ok.json.return_value = {"messages": [{"id": "wamid.ok"}]}
+        with mock.patch("bot.whatsapp.requests.post", side_effect=[erro, ok]) as post:
+            mid = whatsapp.enviar_texto("551194299415", "oi")
+        self.assertEqual(mid, "wamid.ok")
+        self.assertEqual(post.call_args_list[1].kwargs["json"]["to"], "5511994299415")

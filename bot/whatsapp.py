@@ -26,11 +26,29 @@ def assinatura_valida(corpo: bytes, cabecalho: str) -> bool:
     return hmac.compare_digest(esperado, cabecalho.split("=", 1)[1])
 
 
+def _com_nono_digito(numero: str):
+    """Celular brasileiro que a Meta entrega sem o 9 (55 + DDD + 8 dígitos) -> com o 9."""
+    if numero and numero.isdigit() and len(numero) == 12 and numero.startswith("55") and numero[4] in "6789":
+        return numero[:4] + "9" + numero[4:]
+    return None
+
+
 def _enviar(payload: dict):
+    mid, erro = _post(payload)
+    # Erro 131030 (número fora da lista de teste) com número brasileiro sem o 9: tenta com o 9.
+    if erro == 131030:
+        alt = _com_nono_digito(payload.get("to", ""))
+        if alt:
+            log.warning("Reenviando para %s com o nono dígito", alt)
+            mid, _ = _post({**payload, "to": alt})
+    return mid
+
+
+def _post(payload: dict):
     cfg = _cfg()
     if not cfg["TOKEN"] or not cfg["PHONE_NUMBER_ID"]:
         log.error("WHATSAPP_TOKEN ou WHATSAPP_PHONE_NUMBER_ID não configurados; mensagem não enviada.")
-        return None
+        return None, None
     url = f"https://graph.facebook.com/{cfg['GRAPH_VERSION']}/{cfg['PHONE_NUMBER_ID']}/messages"
     try:
         r = requests.post(
@@ -41,14 +59,18 @@ def _enviar(payload: dict):
         )
     except requests.RequestException:
         log.exception("Falha de rede ao enviar mensagem")
-        return None
+        return None, None
     if r.status_code >= 400:
         log.error("Meta recusou a mensagem (%s): %s", r.status_code, r.text[:500])
-        return None
+        try:
+            codigo = r.json()["error"]["code"]
+        except (ValueError, KeyError, TypeError):
+            codigo = None
+        return None, codigo
     try:
-        return r.json()["messages"][0]["id"]
+        return r.json()["messages"][0]["id"], None
     except (ValueError, KeyError, IndexError):
-        return None
+        return None, None
 
 
 def enviar_texto(para: str, texto: str):
