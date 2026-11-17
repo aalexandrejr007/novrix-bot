@@ -15,6 +15,7 @@ class Contato(models.Model):
         "Robô pausado até", null=True, blank=True,
         help_text="Enquanto isso, o robô não responde: quem atende é uma pessoa.",
     )
+    lido_ate = models.DateTimeField("Lido até", null=True, blank=True)
     criado_em = models.DateTimeField("Primeiro contato", auto_now_add=True)
     atualizado_em = models.DateTimeField("Última mensagem", auto_now=True)
 

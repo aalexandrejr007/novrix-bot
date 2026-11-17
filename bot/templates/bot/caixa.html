@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="csrf" content="{{ csrf_token }}">
+<title>Atendimento · Novrix</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230A0A0A'/%3E%3Cpath d='M19 47V17l26 30V17' fill='none' stroke='%23B8F23A' stroke-width='8' stroke-linecap='square'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#0B0C0A;--side:#111310;--surface:#171A15;--line:#262B22;--ink:#EEF0EA;--muted:#8F9888;
+--lime:#B8F23A;--lime-soft:#1D2613;--cliente:#1B1E19;--equipe:#22301A;--robo:#16201E;--warn:#F2B24C;--warn-bg:#2A2010;--bad:#F07A70;
+--font:system-ui,-apple-system,"Segoe UI",Roboto,Inter,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--font);overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+.app{height:100%;display:grid;grid-template-columns:340px 1fr;grid-template-rows:auto 1fr}
+header.top{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left));padding-top:max(10px,env(safe-area-inset-top));background:#000;border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.3px}
+.logo svg{width:26px;height:26px}
+header.top a{margin-left:auto;color:var(--muted);text-decoration:none;font-size:14px}
+header.top a:hover{color:var(--lime)}
+.list{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.busca{padding:10px}
+.busca input{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--ink);font:inherit}
+.busca input:focus{outline:2px solid var(--lime);outline-offset:-1px}
+.convs{overflow-y:auto;flex:1}
+.conv{display:flex;flex-direction:column;gap:3px;padding:12px 14px;border-bottom:1px solid var(--line);background:none;border-left:3px solid transparent;width:100%;text-align:left;border-top:0;border-right:0}
+.conv:hover{background:var(--surface)}
+.conv.on{background:var(--lime-soft);border-left-color:var(--lime)}
+.conv .l1,.conv .l2{display:flex;gap:8px;align-items:center;min-width:0}
+.conv .nome{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conv .hora{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.conv .prev{flex:1;min-width:0;color:var(--muted);font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{background:var(--lime);color:#000;font-size:12px;font-weight:700;border-radius:999px;min-width:20px;height:20px;padding:0 6px;display:grid;place-items:center}
+.pill{font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.pill.hum{background:var(--warn-bg);color:var(--warn)}
+.pill.bot{background:var(--lime-soft);color:var(--lime)}
+.vazio{padding:28px 18px;color:var(--muted);font-size:14px;text-align:center}
+.chat{display:flex;flex-direction:column;min-height:0;min-width:0}
+.chead{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--side);flex-wrap:wrap}
+.chead .voltar{display:none;background:none;border:0;font-size:22px;padding:0 6px 0 0;color:var(--lime)}
+.chead .quem{flex:1;min-width:0}
+.chead .quem b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chead .quem small{color:var(--muted)}
+.ctl{display:flex;align-items:center;gap:8px;font-size:13px}
+.ctl button{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+.ctl button:hover{border-color:var(--lime)}
+.msgs{flex:1;overflow-y:auto;padding:18px max(16px,4%);display:flex;flex-direction:column;gap:6px}
+.m{max-width:min(78%,560px);padding:8px 12px 6px;border-radius:12px;white-space:pre-wrap;word-wrap:break-word}
+.m small{display:block;text-align:right;font-size:11px;color:var(--muted);margin-top:2px}
+.m.cliente{background:var(--cliente);align-self:flex-start;border:1px solid var(--line);border-top-left-radius:4px}
+.m.equipe{background:var(--equipe);align-self:flex-end;border-top-right-radius:4px}
+.m.robo{background:var(--robo);align-self:flex-end;border:1px dashed #2E4A40;border-top-right-radius:4px}
+.aviso{margin:0 16px 8px;background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:8px 12px;font-size:13.5px}
+form.compose{display:flex;gap:10px;align-items:flex-end;padding:10px max(16px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) 16px;border-top:1px solid var(--line);background:var(--side)}
+form.compose textarea{flex:1;resize:none;max-height:160px;min-height:42px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--ink);font:inherit}
+form.compose textarea:focus{outline:2px solid var(--lime);outline-offset:-1px}
+form.compose button{background:var(--lime);color:#000;border:0;border-radius:12px;padding:0 18px;height:42px;font-weight:700}
+form.compose button:disabled{opacity:.5;cursor:default}
+.erro{color:var(--bad);font-size:13.5px;padding:0 16px 8px}
+.inicio{flex:1;display:grid;place-items:center;color:var(--muted);text-align:center;padding:24px}
+.inicio b{color:var(--ink);display:block;font-size:18px;margin-bottom:6px}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  .app.aberto .list{display:none}
+  .app:not(.aberto) .chat{display:none}
+  .chead .voltar{display:block}
+  .chead .ctl{flex-basis:100%;justify-content:space-between}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="logo"><svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0A0A0A"/><path d="M19 47V17l26 30V17" fill="none" stroke="#B8F23A" stroke-width="8" stroke-linecap="square"/></svg>Atendimento</div>
+    <a href="/painel/">Painel completo</a>
+  </header>
+
+  <aside class="list">
+    <div class="busca"><input id="busca" type="search" placeholder="Buscar nome ou número" autocomplete="off"></div>
+    <div class="convs" id="convs"><div class="vazio">Carregando conversas…</div></div>
+  </aside>
+
+  <main class="chat" id="chat">
+    <div class="inicio" id="inicio"><div><b>Escolha uma conversa</b>As mensagens novas aparecem sozinhas, sem precisar atualizar a página.</div></div>
+  </main>
+</div>
+
+<template id="tpl-chat">
+  <div class="chead">
+    <button class="voltar" type="button" aria-label="Voltar para as conversas">←</button>
+    <div class="quem"><b data-nome></b><small data-info></small></div>
+    <div class="ctl"><span data-robo-txt></span><button type="button" data-robo-btn></button></div>
+  </div>
+  <div class="msgs" data-msgs></div>
+  <div class="aviso" data-aviso hidden></div>
+  <div class="erro" data-erro hidden></div>
+  <form class="compose" data-form>
+    <textarea id="texto" name="texto" rows="1" placeholder="Escreva sua resposta… (Enter envia, Shift+Enter pula linha)"></textarea>
+    <button type="submit">Enviar</button>
+  </form>
+</template>
+
+<script>
+const CSRF = document.querySelector('meta[name="csrf"]').content;
+const PAUSA = {{ pausa_horas }};
+const $ = (s, r = document) => r.querySelector(s);
+const app = $('#app'), convsEl = $('#convs'), chatEl = $('#chat');
+let atual = null, ultimoId = 0, status = null, buscando = '';
+const INICIO = chatEl.innerHTML;
+
+function esc(t) { return t.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function fmt(t) { return esc(t).replace(/\*([^*\n]+)\*/g, '<b>$1</b>').replace(/_([^_\n]+)_/g, '<i>$1</i>'); }
+function numero(n) { return n.length >= 12 ? `+${n.slice(0,2)} ${n.slice(2,4)} ${n.slice(4,-4)}-${n.slice(-4)}` : n; }
+const INTERESSE = {sites:'Sites', automacoes:'Automações', planilhas:'Planilhas', sistemas:'Sistemas sob medida', oschurch:'OS-Church'};
+
+async function api(url, dados) {
+  const op = dados ? {method:'POST', headers:{'X-CSRFToken':CSRF}, body:new URLSearchParams(dados)} : {};
+  const r = await fetch(url, op);
+  if (r.status === 302 || r.redirected) { location.href = '/painel/login/?next=/painel/atendimento/'; throw new Error('login'); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.erro || 'Falha de conexão.'), {usuario: true});
+  return j;
+}
+
+async function carregarConversas() {
+  try {
+    const {conversas} = await api('/painel/atendimento/api/conversas/?q=' + encodeURIComponent(buscando));
+    if (!conversas.length) { convsEl.innerHTML = `<div class="vazio">${buscando ? 'Nada encontrado.' : 'Nenhuma conversa ainda. Quando alguém chamar no WhatsApp, aparece aqui.'}</div>`; return; }
+    convsEl.innerHTML = conversas.map(c => `
+      <button class="conv${c.id === atual ? ' on' : ''}" data-id="${c.id}" type="button">
+        <span class="l1"><span class="nome">${esc(c.nome)}</span><span class="hora">${c.hora}</span></span>
+        <span class="l2"><span class="prev">${esc(c.ultima)}</span>
+          ${c.robo_pausado ? '<span class="pill hum">Pessoa</span>' : '<span class="pill bot">Robô</span>'}
+          ${c.nao_lidas && c.id !== atual ? `<span class="badge">${c.nao_lidas}</span>` : ''}</span>
+      </button>`).join('');
+  } catch (e) { if (e.message !== 'login') convsEl.innerHTML = '<div class="vazio">Sem conexão com o servidor. Tentando de novo…</div>'; }
+}
+
+convsEl.addEventListener('click', e => { const b = e.target.closest('.conv'); if (b) abrir(+b.dataset.id); });
+$('#busca').addEventListener('input', e => { buscando = e.target.value.trim(); carregarConversas(); });
+
+function pintarStatus() {
+  const txt = $('[data-robo-txt]', chatEl), btn = $('[data-robo-btn]', chatEl), aviso = $('[data-aviso]', chatEl);
+  if (status.robo_pausado) { txt.textContent = `Robô pausado até ${status.pausado_ate}`; btn.textContent = 'Reativar robô'; }
+  else { txt.textContent = 'Robô respondendo'; btn.textContent = `Pausar ${PAUSA} h`; }
+  aviso.hidden = status.janela_aberta;
+  aviso.textContent = 'Já passaram 24 h desde a última mensagem do cliente. Pela regra do WhatsApp, você só pode responder depois que ele mandar uma nova mensagem.';
+  $('[data-form] button', chatEl).disabled = !status.janela_aberta;
+}
+
+function adicionar(msgs) {
+  const box = $('[data-msgs]', chatEl);
+  const noFim = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  for (const m of msgs) {
+    if (m.id <= ultimoId) continue;
+    const d = document.createElement('div');
+    d.className = 'm ' + m.de;
+    d.innerHTML = fmt(m.texto) + `<small>${m.de === 'robo' ? 'robô · ' : m.de === 'equipe' ? 'você · ' : ''}${m.hora}</small>`;
+    box.appendChild(d);
+    ultimoId = m.id;
+  }
+  if (noFim || msgs.length > 20) box.scrollTop = box.scrollHeight;
+}
+
+async function abrir(id) {
+  atual = id; ultimoId = 0;
+  chatEl.innerHTML = ''; chatEl.appendChild($('#tpl-chat').content.cloneNode(true));
+  app.classList.add('aberto');
+  $('.voltar', chatEl).onclick = () => { app.classList.remove('aberto'); atual = null; chatEl.innerHTML = INICIO; carregarConversas(); };
+  $('[data-robo-btn]', chatEl).onclick = async () => {
+    try { status = (await api(`/painel/atendimento/api/${id}/robo/`, {acao: status.robo_pausado ? 'reativar' : 'pausar'})).status; pintarStatus(); carregarConversas(); } catch (e) {}
+  };
+  const form = $('[data-form]', chatEl), ta = $('#texto', chatEl), erro = $('[data-erro]', chatEl);
+  ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 160) + 'px'; });
+  ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !matchMedia('(pointer:coarse)').matches) { e.preventDefault(); form.requestSubmit(); } });
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const texto = ta.value.trim(); if (!texto) return;
+    const btn = $('button', form); btn.disabled = true; erro.hidden = true;
+    try {
+      const r = await api(`/painel/atendimento/api/${id}/enviar/`, {texto});
+      ta.value = ''; ta.style.height = 'auto';
+      adicionar([r.mensagem]); status = r.status; pintarStatus(); carregarConversas();
+    } catch (err) { erro.textContent = err.usuario ? err.message : 'Não foi possível enviar. Verifique a conexão.'; erro.hidden = false; }
+    finally { btn.disabled = !status.janela_aberta; ta.focus(); }
+  });
+  await atualizarChat(true);
+  carregarConversas();
+  if (!matchMedia('(pointer:coarse)').matches) ta.focus();
+}
+
+async function atualizarChat(primeira) {
+  if (!atual) return;
+  const id = atual;
+  try {
+    const r = await api(`/painel/atendimento/api/${id}/mensagens/?depois=${ultimoId}`);
+    if (id !== atual) return;
+    if (primeira) {
+      $('[data-nome]', chatEl).textContent = r.contato.nome;
+      const extra = [numero(r.contato.numero), INTERESSE[r.contato.interesse], r.contato.quer_orcamento ? 'pediu atendimento' : ''].filter(Boolean).join(' · ');
+      $('[data-info]', chatEl).textContent = extra;
+    }
+    status = r.status; pintarStatus();
+    adicionar(r.mensagens);
+  } catch (e) {}
+}
+
+carregarConversas();
+setInterval(carregarConversas, 6000);
+setInterval(() => atualizarChat(false), 3000);
+</script>
+</body>
+</html>

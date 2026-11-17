@@ -187,3 +187,68 @@ class NonoDigitoTests(TestCase):
             mid = whatsapp.enviar_texto("551194299415", "oi")
         self.assertEqual(mid, "wamid.ok")
         self.assertEqual(post.call_args_list[1].kwargs["json"]["to"], "5511994299415")
+
+
+@override_settings(WHATSAPP=WA, PAUSA_HUMANO_HORAS=24)
+class CaixaTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_user("equipe", password="x", is_staff=True)
+        self.c = Contato.objects.create(wa_id="5511999990000", nome="Maria Souza")
+        Mensagem.objects.create(contato=self.c, direcao=Mensagem.ENTRADA, wa_message_id="in.1", tipo="text", texto="Oi")
+        Mensagem.objects.create(contato=self.c, direcao=Mensagem.ENTRADA, wa_message_id="in.2", tipo="audio", texto="")
+
+    def test_exige_login(self):
+        r = self.client.get("/painel/atendimento/")
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/painel/login/", r["Location"])
+        r = self.client.get("/painel/atendimento/api/conversas/")
+        self.assertEqual(r.status_code, 302)
+
+    def test_lista_e_mensagens(self):
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get("/painel/atendimento/").status_code, 200)
+        conv = self.client.get("/painel/atendimento/api/conversas/").json()["conversas"]
+        self.assertEqual(conv[0]["nome"], "Maria Souza")
+        self.assertEqual(conv[0]["nao_lidas"], 2)
+        r = self.client.get(f"/painel/atendimento/api/{self.c.id}/mensagens/").json()
+        self.assertEqual([m["de"] for m in r["mensagens"]], ["cliente", "cliente"])
+        self.assertIn("Áudio", r["mensagens"][1]["texto"])
+        self.assertTrue(r["status"]["janela_aberta"])
+        # abrir a conversa marca como lida
+        conv = self.client.get("/painel/atendimento/api/conversas/").json()["conversas"]
+        self.assertEqual(conv[0]["nao_lidas"], 0)
+
+    def test_responder_envia_e_pausa_robo(self):
+        self.client.force_login(self.user)
+        with mock.patch("bot.whatsapp.enviar_texto", return_value="wamid.eq") as env:
+            r = self.client.post(f"/painel/atendimento/api/{self.c.id}/enviar/", {"texto": "Oi Maria, aqui é o Alexandre"})
+        self.assertEqual(r.status_code, 200)
+        env.assert_called_once_with("5511999990000", "Oi Maria, aqui é o Alexandre")
+        self.assertEqual(r.json()["mensagem"]["de"], "equipe")
+        self.c.refresh_from_db()
+        self.assertTrue(self.c.robo_pausado)
+
+    def test_fora_da_janela_de_24h_nao_envia(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        Mensagem.objects.filter(contato=self.c).update(criado_em=timezone.now() - timedelta(hours=25))
+        self.client.force_login(self.user)
+        with mock.patch("bot.whatsapp.enviar_texto") as env:
+            r = self.client.post(f"/painel/atendimento/api/{self.c.id}/enviar/", {"texto": "oi"})
+        self.assertEqual(r.status_code, 400)
+        env.assert_not_called()
+
+    def test_meta_recusa(self):
+        self.client.force_login(self.user)
+        with mock.patch("bot.whatsapp.enviar_texto", return_value=None):
+            r = self.client.post(f"/painel/atendimento/api/{self.c.id}/enviar/", {"texto": "oi"})
+        self.assertEqual(r.status_code, 502)
+        self.assertFalse(Mensagem.objects.filter(tipo="humano").exists())
+
+    def test_pausar_e_reativar(self):
+        self.client.force_login(self.user)
+        r = self.client.post(f"/painel/atendimento/api/{self.c.id}/robo/", {"acao": "pausar"}).json()
+        self.assertTrue(r["status"]["robo_pausado"])
+        r = self.client.post(f"/painel/atendimento/api/{self.c.id}/robo/", {"acao": "reativar"}).json()
+        self.assertFalse(r["status"]["robo_pausado"])
