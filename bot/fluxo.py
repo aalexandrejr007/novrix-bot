@@ -72,7 +72,9 @@ def _normalizar(texto):
 
 
 def _registrar_saida(contato, texto, wa_id_msg):
-    Mensagem.objects.create(contato=contato, direcao=Mensagem.SAIDA, wa_message_id=wa_id_msg, tipo="robo", texto=texto)
+    # Sem ID de volta = o WhatsApp não aceitou o envio; fica marcado no painel.
+    Mensagem.objects.create(contato=contato, direcao=Mensagem.SAIDA, wa_message_id=wa_id_msg,
+                            tipo="robo" if wa_id_msg else "falha", texto=texto)
 
 
 def enviar_menu(contato, saudacao=False):

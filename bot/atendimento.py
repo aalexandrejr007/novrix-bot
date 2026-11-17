@@ -32,9 +32,10 @@ def _texto(m):
 def _msg_json(m):
     return {
         "id": m.id,
-        "de": "cliente" if m.direcao == Mensagem.ENTRADA else ("robo" if m.tipo == "robo" else "equipe"),
+        "de": "cliente" if m.direcao == Mensagem.ENTRADA else ("robo" if m.tipo in ("robo", "falha") else "equipe"),
         "texto": _texto(m),
         "via_app": m.tipo == "app",
+        "falhou": m.tipo == "falha",
         "hora": timezone.localtime(m.criado_em).strftime("%d/%m %H:%M"),
     }
 
@@ -80,7 +81,7 @@ def api_conversas(request):
             "quer_orcamento": c.quer_orcamento,
             "robo_pausado": c.robo_pausado,
             "nao_lidas": c.nao_lidas,
-            "ultima": (("Você: " if ultima.direcao == Mensagem.SAIDA and ultima.tipo != "robo" else "")
+            "ultima": (("Você: " if ultima.direcao == Mensagem.SAIDA and ultima.tipo not in ("robo", "falha") else "")
                        + _texto(ultima))[:90] if ultima else "",
             "hora": timezone.localtime(c.ultima_em).strftime("%d/%m %H:%M") if c.ultima_em else "",
         })

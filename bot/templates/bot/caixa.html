@@ -51,6 +51,8 @@ header.top a:hover{color:var(--lime)}
 .m small{display:block;text-align:right;font-size:11px;color:var(--muted);margin-top:2px}
 .m.cliente{background:var(--cliente);align-self:flex-start;border:1px solid var(--line);border-top-left-radius:4px}
 .m.equipe{background:var(--equipe);align-self:flex-end;border-top-right-radius:4px}
+.m.falha{border-color:var(--bad)!important}
+.m.falha small{color:var(--bad)}
 .m.robo{background:var(--robo);align-self:flex-end;border:1px dashed #2E4A40;border-top-right-radius:4px}
 .aviso{margin:0 16px 8px;background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:8px 12px;font-size:13.5px}
 form.compose{display:flex;gap:10px;align-items:flex-end;padding:10px max(16px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) 16px;border-top:1px solid var(--line);background:var(--side)}
@@ -156,8 +158,8 @@ function adicionar(msgs) {
   for (const m of msgs) {
     if (m.id <= ultimoId) continue;
     const d = document.createElement('div');
-    d.className = 'm ' + m.de;
-    d.innerHTML = fmt(m.texto) + `<small>${m.de === 'robo' ? 'robô · ' : m.de === 'equipe' ? (m.via_app ? 'você pelo app · ' : 'você · ') : ''}${m.hora}</small>`;
+    d.className = 'm ' + m.de + (m.falhou ? ' falha' : '');
+    d.innerHTML = fmt(m.texto) + `<small>${m.falhou ? '⚠ não entregue · ' : ''}${m.de === 'robo' ? 'robô · ' : m.de === 'equipe' ? (m.via_app ? 'você pelo app · ' : 'você · ') : ''}${m.hora}</small>`;
     box.appendChild(d);
     ultimoId = m.id;
   }

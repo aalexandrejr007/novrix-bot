@@ -104,6 +104,7 @@ def _post_ycloud(payload: dict):
         dados = r.json()
     except ValueError:
         return None, None
+    log.info("YCloud: mensagem para %s com status %s", corpo["to"], dados.get("status"))
     if dados.get("status") == "failed":
         log.error("YCloud marcou a mensagem como falha: %s", str(dados)[:500])
         return None, None
