@@ -157,7 +157,7 @@ function adicionar(msgs) {
     if (m.id <= ultimoId) continue;
     const d = document.createElement('div');
     d.className = 'm ' + m.de;
-    d.innerHTML = fmt(m.texto) + `<small>${m.de === 'robo' ? 'robô · ' : m.de === 'equipe' ? 'você · ' : ''}${m.hora}</small>`;
+    d.innerHTML = fmt(m.texto) + `<small>${m.de === 'robo' ? 'robô · ' : m.de === 'equipe' ? (m.via_app ? 'você pelo app · ' : 'você · ') : ''}${m.hora}</small>`;
     box.appendChild(d);
     ultimoId = m.id;
   }

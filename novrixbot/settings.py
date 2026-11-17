@@ -104,6 +104,12 @@ WHATSAPP = {
     # "Chave secreta do app" (Configurações do app → Básico). Confere que a mensagem veio da Meta.
     "APP_SECRET": env("WHATSAPP_APP_SECRET"),
     "GRAPH_VERSION": env("WHATSAPP_GRAPH_VERSION", "v23.0"),
+    # "meta" (direto na Meta) ou "ycloud" (coexistência: app WhatsApp Business + robô no mesmo número).
+    "PROVIDER": env("WHATSAPP_PROVIDER", "meta"),
+    # YCloud: chave da API (Developers → API Keys), número conectado (+5511...) e segredo do webhook.
+    "YCLOUD_API_KEY": env("YCLOUD_API_KEY"),
+    "YCLOUD_FROM": env("YCLOUD_FROM"),
+    "YCLOUD_WEBHOOK_SECRET": env("YCLOUD_WEBHOOK_SECRET"),
 }
 
 # Por quanto tempo o robô fica quieto numa conversa depois que uma pessoa assume.

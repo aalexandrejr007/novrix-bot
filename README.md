@@ -56,3 +56,25 @@ python manage.py runserver
 
 - Troque o plano do Render para pago (web `starter`, banco `basic-256mb`): o gratuito "dorme" e o banco gratuito expira.
 - Troque o token temporário (24 h) por um **token de usuário do sistema** permanente (Gerenciador de Negócios → Usuários do sistema).
+
+## Modo YCloud (app WhatsApp Business + robô no mesmo número)
+
+Com a YCloud (parceira oficial da Meta), o número continua no app do celular e o robô responde junto.
+O que você responder pelo app aparece no painel e pausa o robô naquela conversa.
+
+1. YCloud → conecte o número em **modo coexistência** (WhatsApp Business App existente, QR code).
+2. YCloud → **Developers → API Keys**: copie a chave.
+3. YCloud → **Developers → Webhooks → Add endpoint**:
+   - URL: `https://SEU-SERVICO.onrender.com/webhook/ycloud/`
+   - Eventos: `whatsapp.inbound_message.received` e `whatsapp.smb.message.echoes`
+   - Copie o **secret** que aparece ao salvar.
+4. Render → Environment:
+
+| Variável | Valor |
+|---|---|
+| `WHATSAPP_PROVIDER` | `ycloud` |
+| `YCLOUD_API_KEY` | a chave do passo 2 |
+| `YCLOUD_FROM` | o número conectado, ex.: `+5511957554987` |
+| `YCLOUD_WEBHOOK_SECRET` | o secret do passo 3 |
+
+Para voltar ao número de teste da Meta, troque `WHATSAPP_PROVIDER` para `meta`.

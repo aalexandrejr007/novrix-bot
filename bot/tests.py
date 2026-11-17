@@ -252,3 +252,68 @@ class CaixaTests(TestCase):
         self.assertTrue(r["status"]["robo_pausado"])
         r = self.client.post(f"/painel/atendimento/api/{self.c.id}/robo/", {"acao": "reativar"}).json()
         self.assertFalse(r["status"]["robo_pausado"])
+
+
+YC = {**WA, "PROVIDER": "ycloud", "YCLOUD_API_KEY": "k", "YCLOUD_FROM": "+5511957554987", "YCLOUD_WEBHOOK_SECRET": "ys"}
+
+
+@override_settings(WHATSAPP=YC, PAUSA_HUMANO_HORAS=24)
+class YCloudTests(TestCase):
+    def post(self, evento, assinar=True, ts=None):
+        import time as _t
+        corpo = json.dumps(evento).encode()
+        ts = str(ts or int(_t.time()))
+        sig = hmac.new(b"ys", ts.encode() + b"." + corpo, hashlib.sha256).hexdigest()
+        h = {"HTTP_YCLOUD_SIGNATURE": f"t={ts},s={sig}"} if assinar else {}
+        return self.client.post("/webhook/ycloud/", corpo, content_type="application/json", **h)
+
+    def entrada(self, texto="oi", wamid="wamid.y1", tipo="text", extra=None):
+        m = {"id": "yc1", "wamid": wamid, "wabaId": "W", "from": "+5511988887777",
+             "customerProfile": {"name": "Joana Lima"}, "to": "+5511957554987", "type": tipo}
+        m.update(extra or {"text": {"body": texto}})
+        return {"id": "evt_" + wamid, "type": "whatsapp.inbound_message.received", "whatsappInboundMessage": m}
+
+    def test_assinatura(self):
+        self.assertEqual(self.post(self.entrada(), assinar=False).status_code, 403)
+        self.assertEqual(self.post(self.entrada(), ts=1000).status_code, 403)  # antiga demais
+
+    def test_primeira_mensagem_envia_menu_pela_ycloud(self):
+        ok = mock.Mock(status_code=200)
+        ok.json.return_value = {"id": "ycmsg", "wamid": "wamid.out1", "status": "accepted"}
+        with mock.patch("bot.whatsapp.requests.post", return_value=ok) as post:
+            r = self.post(self.entrada())
+        self.assertEqual(r.status_code, 204)
+        url = post.call_args.args[0]
+        self.assertEqual(url, "https://api.ycloud.com/v2/whatsapp/messages/sendDirectly")
+        corpo = post.call_args.kwargs["json"]
+        self.assertEqual(corpo["from"], "+5511957554987")
+        self.assertEqual(corpo["to"], "+5511988887777")
+        self.assertEqual(corpo["type"], "interactive")
+        self.assertNotIn("messaging_product", corpo)
+        self.assertEqual(post.call_args.kwargs["headers"]["X-API-Key"], "k")
+        c = Contato.objects.get()
+        self.assertEqual((c.wa_id, c.nome), ("5511988887777", "Joana Lima"))
+        self.assertTrue(Mensagem.objects.filter(wa_message_id="wamid.out1").exists())
+
+    def test_escolha_na_lista(self):
+        ok = mock.Mock(status_code=200)
+        ok.json.return_value = {"id": "x", "status": "accepted"}
+        n = iter(range(100))
+        ok.json.side_effect = lambda: {"id": f"y{next(n)}", "status": "accepted"}
+        with mock.patch("bot.whatsapp.requests.post", return_value=ok) as post:
+            self.post(self.entrada())
+            self.post(self.entrada(wamid="wamid.y2", tipo="interactive",
+                                   extra={"interactive": {"type": "list_reply", "list_reply": {"id": "sites", "title": "Sites"}}}))
+        self.assertEqual(post.call_args.kwargs["json"]["interactive"]["type"], "button")
+        self.assertEqual(Contato.objects.get().interesse, "sites")
+
+    def test_resposta_pelo_app_aparece_no_painel_e_pausa(self):
+        eco = {"id": "evt_e", "type": "whatsapp.smb.message.echoes", "whatsappMessage": {
+            "id": "m1", "wamid": "wamid.app1", "from": "+5511957554987", "to": "+5511988887777",
+            "type": "text", "text": {"body": "Oi Joana, aqui é o Alexandre"}}}
+        self.assertEqual(self.post(eco).status_code, 204)
+        self.post(eco)  # repetido: não duplica
+        c = Contato.objects.get(wa_id="5511988887777")
+        self.assertTrue(c.robo_pausado)
+        self.assertEqual(c.mensagens.filter(tipo="app").count(), 1)
+        self.assertEqual(c.mensagens.get().texto, "Oi Joana, aqui é o Alexandre")

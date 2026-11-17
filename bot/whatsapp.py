@@ -1,7 +1,14 @@
-"""Envio de mensagens pela API oficial do WhatsApp (Cloud API da Meta)."""
+"""Envio de mensagens pelo WhatsApp.
+
+Dois caminhos, escolhidos pela variável WHATSAPP_PROVIDER:
+- "meta":   direto na Cloud API da Meta (número de teste, ou número só da API);
+- "ycloud": pela YCloud, parceira oficial da Meta, que permite usar o mesmo número
+            no app WhatsApp Business e no robô ao mesmo tempo (coexistência).
+"""
 import hashlib
 import hmac
 import logging
+import time
 
 import requests
 from django.conf import settings
@@ -26,6 +33,27 @@ def assinatura_valida(corpo: bytes, cabecalho: str) -> bool:
     return hmac.compare_digest(esperado, cabecalho.split("=", 1)[1])
 
 
+def assinatura_ycloud_valida(corpo: bytes, cabecalho: str, agora=None) -> bool:
+    """Confere o cabeçalho YCloud-Signature: "t=TIMESTAMP,s=HMAC_SHA256_HEX(TIMESTAMP + "." + corpo)"."""
+    segredo = _cfg()["YCLOUD_WEBHOOK_SECRET"]
+    if not segredo:
+        log.warning("YCLOUD_WEBHOOK_SECRET não configurado: assinatura do webhook não verificada.")
+        return True
+    campos = [p.strip().split("=", 1) for p in (cabecalho or "").split(",") if "=" in p]
+    ts = [v for k, v in campos if k == "t"]
+    assinaturas = [v for k, v in campos if k == "s"]
+    if len(ts) != 1 or not ts[0].isdigit():
+        return False
+    if abs(int(agora or time.time()) - int(ts[0])) > 300:  # evita repetição de requisições antigas
+        return False
+    esperado = hmac.new(segredo.encode(), ts[0].encode() + b"." + corpo, hashlib.sha256).hexdigest()
+    return any(hmac.compare_digest(esperado, a.lower()) for a in assinaturas)
+
+
+def so_digitos(numero: str) -> str:
+    return "".join(c for c in (numero or "") if c.isdigit())
+
+
 def _com_nono_digito(numero: str):
     """Celular brasileiro que a Meta entrega sem o 9 (55 + DDD + 8 dígitos) -> com o 9."""
     if numero and numero.isdigit() and len(numero) == 12 and numero.startswith("55") and numero[4] in "6789":
@@ -45,6 +73,44 @@ def _enviar(payload: dict):
 
 
 def _post(payload: dict):
+    if _cfg().get("PROVIDER") == "ycloud":
+        return _post_ycloud(payload)
+    return _post_meta(payload)
+
+
+def _post_ycloud(payload: dict):
+    cfg = _cfg()
+    if not cfg["YCLOUD_API_KEY"] or not cfg["YCLOUD_FROM"]:
+        log.error("YCLOUD_API_KEY ou YCLOUD_FROM não configurados; mensagem não enviada.")
+        return None, None
+    corpo = {k: v for k, v in payload.items() if k != "to"}
+    if corpo.get("type") == "text":
+        corpo["text"] = {"body": corpo["text"]["body"]}
+    corpo.update({"from": "+" + so_digitos(cfg["YCLOUD_FROM"]), "to": "+" + so_digitos(payload["to"])})
+    try:
+        r = requests.post(
+            "https://api.ycloud.com/v2/whatsapp/messages/sendDirectly",
+            json=corpo,
+            headers={"X-API-Key": cfg["YCLOUD_API_KEY"]},
+            timeout=20,
+        )
+    except requests.RequestException:
+        log.exception("Falha de rede ao enviar mensagem pela YCloud")
+        return None, None
+    if r.status_code >= 400:
+        log.error("YCloud recusou a mensagem (%s): %s", r.status_code, r.text[:500])
+        return None, None
+    try:
+        dados = r.json()
+    except ValueError:
+        return None, None
+    if dados.get("status") == "failed":
+        log.error("YCloud marcou a mensagem como falha: %s", str(dados)[:500])
+        return None, None
+    return dados.get("wamid") or dados.get("id"), None
+
+
+def _post_meta(payload: dict):
     cfg = _cfg()
     if not cfg["TOKEN"] or not cfg["PHONE_NUMBER_ID"]:
         log.error("WHATSAPP_TOKEN ou WHATSAPP_PHONE_NUMBER_ID não configurados; mensagem não enviada.")

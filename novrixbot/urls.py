@@ -12,6 +12,7 @@ admin.site.site_url = "/painel/atendimento/"  # link "Ver o site" do admin leva 
 
 urlpatterns = [
     path("webhook/", views.webhook, name="webhook"),
+    path("webhook/ycloud/", views.webhook_ycloud, name="webhook_ycloud"),
     path("privacidade/", views.privacidade, name="privacidade"),
     path("saude/", views.saude, name="saude"),
     path("painel/atendimento/", atendimento.caixa, name="caixa"),

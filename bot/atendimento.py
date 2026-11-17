@@ -34,6 +34,7 @@ def _msg_json(m):
         "id": m.id,
         "de": "cliente" if m.direcao == Mensagem.ENTRADA else ("robo" if m.tipo == "robo" else "equipe"),
         "texto": _texto(m),
+        "via_app": m.tipo == "app",
         "hora": timezone.localtime(m.criado_em).strftime("%d/%m %H:%M"),
     }
 
